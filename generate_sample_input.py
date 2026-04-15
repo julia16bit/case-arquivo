@@ -1,6 +1,7 @@
 from pathlib import Path
 import csv
 
+# Gera um arquivo CSV de exemplo com 10.000 linhas, contendo variações de dados para testar os workers
 path = Path('entrada/sample_input_10000.csv')
 path.parent.mkdir(parents=True, exist_ok=True)
 with path.open('w', newline='', encoding='utf-8') as f:

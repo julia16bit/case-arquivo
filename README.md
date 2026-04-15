@@ -1,9 +1,9 @@
-<h2 align="center">🟦 Pipeline CSV Manager</h2>
-<p align="center">API simples de processamento em duas etapas para arquivos CSV. O projeto valida e limpa dados na etapa A, transforma e insere no PostgreSQL na etapa B, gerando um fluxo de dados em lote seguro e repetível.</p>
+<h2 align="center">🟦 Pipeline Manager</h2>
+<p align="center">Script simples de processamento em duas etapas para arquivos CSV. O projeto valida e limpa dados na etapa A, transforma e insere no PostgreSQL na etapa B, gerando um fluxo de dados em lote seguro e repetível.</p>
   
 <p align="center"> 
-  <img alt="Python" src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white&color=3776AB&labelColor=3776AB" />
-  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white&color=316192&labelColor=316192" />
+  <img alt="Python" src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white&color=3776AB&labelColor=2E3849" />
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white&color=316192&labelColor=2E3849" />
   <img alt="psycopg2" src="https://img.shields.io/badge/psycopg2-2E3849?style=for-the-badge&logo=postgresql&logoColor=white&color=2E3849&labelColor=2E3849" />
   <img alt="CSV" src="https://img.shields.io/badge/CSV-2E3849?style=for-the-badge&logo=csv&logoColor=white&color=2E3849&labelColor=2E3849" />
   <img alt="Logging" src="https://img.shields.io/badge/Logging-2E3849?style=for-the-badge&logo=logstash&logoColor=white&color=2E3849&labelColor=2E3849" />

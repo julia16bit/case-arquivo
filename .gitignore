@@ -159,6 +159,10 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Pipeline project local files
+__pycache__/
+*.pyc
+
 # Pyre type checker
 .pyre/
 

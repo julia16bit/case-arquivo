@@ -103,7 +103,6 @@ python -m pip install psycopg2-binary
 ├── colored_logging.py       # Sistema de logs colorido ANSI
 ├── generate_sample_input.py # Gera exemplo CSV com 10.000 linhas para teste
 ├── demo_security.py         # Demonstração de controles de segurança
-├── cleanup_database.py      # Ferramenta para limpar dados do banco de forma interativa
 ├── README.md                # Este arquivo
 ├── SECURITY.md              # Documentação completa de segurança
 └── LICENSE                  # Licença do projeto
@@ -167,14 +166,6 @@ python generate_sample_input.py
 python demo_security.py
 python worker_a.py
 python worker_b.py
-```
-
-### Limpar banco de dados
-```bash
-```exemplo CSV com 10.000 linhas
-├── entrada/           # Arquivos CSV de entrada
-├── processado_a/      # Saída da etapa A
-└── pronto/            # Arquivos processados e finalizados
 ```
 
 ## Exemplo de Arquivo de Entrada

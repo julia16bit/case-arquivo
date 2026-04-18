@@ -18,6 +18,34 @@ Projeto de pipeline de dados em Python que processa arquivos CSV em lote usando 
 
 O fluxo evita reprocessar arquivos e, agora, também previne inserções duplicadas no banco quando o mesmo conteúdo é reenviado.
 
+## Fluxo de Dados
+
+```
+entrada/ 
+   ↓
+[Worker A: Validação + Limpeza]
+   ├─→ processado_a/ (arquivo limpo)
+   └─→ pronto/ (original)
+       ↓
+   [Worker B: Transformação + Inserção]
+       ├─→ PostgreSQL (JSON payload)
+       └─→ pronto/ (arquivo finalizado)
+```
+
+**Etapa A (Worker A):**
+1. Lê arquivo CSV em `entrada/`
+2. Valida tamanho, linhas e schema
+3. Remove linhas vazias, normaliza valores e detecta fórmulas perigosas
+4. Salva cópia limpa em `processado_a/` via arquivo `.tmp`
+5. Move original para `pronto/`
+
+**Etapa B (Worker B):**
+1. Lê arquivo limpo de `processado_a/`
+2. Converte tipos (`int`, `float`, `bool`, `str`, `null`)
+3. Insere no banco como `fonte` + `payload JSON`
+4. Usa restrição única para evitar duplicatas
+5. Move arquivo finalizado para `pronto/`
+
 ## Tecnologias Utilizadas
 
 | Categoria                                   | Tecnologia                             | Descrição                                    |
@@ -64,15 +92,41 @@ O fluxo evita reprocessar arquivos e, agora, também previne inserções duplica
 cd C:\Users\Administrador\Documents\github\case-arquivo
 python -m pip install psycopg2-binary
 ```
+### Arquivos Principais
 
-Crie as variáveis de ambiente do banco (PowerShell):
-```powershell
-$env:DB_HOST = "localhost"
-$env:DB_PORT = "5432"
-$env:DB_NAME = "pipeline_db"
-$env:DB_USER = "postgres"
-$env:DB_PASSWORD = "postgres"
+```bash
+.
+├── worker_a.py              # Validação, limpeza e normalização de CSV
+├── worker_b.py              # Transformação de tipos e inserção no banco
+├── db.py                    # Conexão PostgreSQL e bulk insert com deduplicação
+├── validation.py            # Validações de segurança (tamanho, linhas, fórmulas, sanitização)
+├── colored_logging.py       # Sistema de logs colorido ANSI
+├── generate_sample_input.py # Gera exemplo CSV com 10.000 linhas para teste
+├── demo_security.py         # Demonstração de controles de segurança
+├── cleanup_database.py      # Ferramenta para limpar dados do banco de forma interativa
+├── README.md                # Este arquivo
+├── SECURITY.md              # Documentação completa de segurança
+└── LICENSE                  # Licença do projeto
 ```
+
+### Diretórios de Dados
+
+```bash
+entrada/        # Novos arquivos CSV chegam aqui
+processado_a/   # Arquivos após Worker A (limpos e validados)
+pronto/         # Arquivos finalizados após Worker B
+```
+
+### Características por Arquivo
+
+| Arquivo | Responsabilidade |
+|---------|------------------|
+| `worker_a.py` | Valida, limpa, normaliza e formata CSV; move original para `pronto/` |
+| `worker_b.py` | Transforma tipos, insere no PostgreSQL com deduplicação; finaliza arquivo |
+| `db.py` | Gerencia conexão, cria tabela com restrição única e insere em lote |
+| `validation.py` | Validações de tamanho (50 MB), linhas (100k), schema, fórmulas Excel e sanitização |
+| `colored_logging.py` | Logs ANSI coloridos para melhor observabilidade |
+| `demo_security.py` | Exemplos e testes de segurança |
 
 ### Executar os workers
 
@@ -90,14 +144,34 @@ $env:WORKER_B_LOOP = "true"
 
 Ambos os workers então irão verificar novos arquivos a cada 30 segundos.
 
-## Estrutura do Projeto
+## Estrutura do e Observabilidade
 
+Veja [SECURITY.md](SECURITY.md) para documentação completa sobre:
+
+- **Validação de CSV**: limite de tamanho (50 MB), contagem de linhas (100k), detecção de fórmulas Excel, sanitização de caracteres
+- **Arquivos Temporários (.tmp)**: garante escrita atômica e previne leitura parcial
+- **Prevenção de Reprocessamento**: movimentação clara de arquivos entre pastas
+- **Deduplicação no Banco**: constraint única `(fonte, payload_hash)` com `ON CONFLICT DO NOTHING`
+- **Logs Seguros**: nunca revela dados pessoais ou payload completo
+- **Logs Coloridos**: observabilidade visual com ANSI colors
+
+## Exemplos de Uso
+
+### Gerar dados de teste
 ```bash
-.
-├── db.py              # Conexão e inserção no PostgreSQL
-├── worker_a.py        # Validação e limpeza de CSV
-├── worker_b.py        # Transformação e inserção em lote
-├── generate_sample_input.py # Gera exemplo CSV com 10.000 linhas
+python generate_sample_input.py
+```
+
+### Demonstrar controles de segurança
+```bash
+python demo_security.py
+python worker_a.py
+python worker_b.py
+```
+
+### Limpar banco de dados
+```bash
+```exemplo CSV com 10.000 linhas
 ├── entrada/           # Arquivos CSV de entrada
 ├── processado_a/      # Saída da etapa A
 └── pronto/            # Arquivos processados e finalizados

@@ -16,7 +16,7 @@ Projeto de pipeline de dados em Python que processa arquivos CSV em lote usando 
 - **Worker A**: valida e limpa dados de `entrada/`, produz arquivos em `processado_a/` e move os originais para `pronto/`.
 - **Worker B**: transforma os dados de `processado_a/`, normaliza tipos e insere registros em PostgreSQL.
 
-O fluxo evita reprocessar arquivos e mantém o código simples, legível e fácil de entender.
+O fluxo evita reprocessar arquivos e, agora, também previne inserções duplicadas no banco quando o mesmo conteúdo é reenviado.
 
 ## Tecnologias Utilizadas
 
@@ -43,10 +43,12 @@ O fluxo evita reprocessar arquivos e mantém o código simples, legível e fáci
 - Lê CSV gerados em `processado_a/`
 - Normaliza texto e converte tipos (`int`, `float`, `bool`, `null`)
 - Insere os dados no PostgreSQL em lote
+- Usa restrição única no banco para evitar inserções duplicadas de mesmo payload e fonte
 - Move o arquivo processado para `pronto/`
 
 ### ✅ Robustez
 - Evita reprocessar arquivos ao mover os arquivos finalizados para `pronto/`
+- Previne inserções duplicadas no banco usando `ON CONFLICT DO NOTHING` e hash de payload
 - Usa logs básicos para acompanhar processamento
 - Implementa tratamento de erros com `try/except`
 
@@ -113,5 +115,14 @@ Use o `psql` ou Python para confirmar que os dados foram inseridos:
 SELECT count(*) FROM dados_processados;
 SELECT fonte, payload FROM dados_processados LIMIT 10;
 ```
+
+## 🔐 Segurança
+
+Veja [SECURITY.md](SECURITY.md) para documentação completa sobre:
+- Validação de CSV (limite de tamanho, detecção de fórmulas, sanitização)
+- Arquivos temporários (.tmp) para evitar leitura parcial
+- Prevenção de reprocessamento
+- Logs seguros (sem dados sensíveis)
+- Controle de acesso e boas práticas
 
 > 📌 O projeto está pensado para ser simples: sem frameworks complexos, com processamento em lote e lógica clara de pastas de entrada, saída intermediária e pronto.

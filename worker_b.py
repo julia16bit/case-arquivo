@@ -8,6 +8,7 @@ from pathlib import Path
 from db import create_table, insert_rows
 from validation import sanitize_value
 from colored_logging import setup_colored_logging
+from metrics import get_tracker
 
 INPUT_DIR = Path("processado_a")
 DONE_DIR = Path("pronto")
@@ -83,15 +84,21 @@ def process_file(file_path):
     """Processa arquivo CSV: transforma dados, insere em BD e move para pronto."""
     logger.info("Iniciando transformação de %s", file_path.name)
     
+    metrics = get_tracker()
+    metrics.start_file_processing(file_path.name, "b")
+    
     try:
         # 1. Leitura e transformação
         with file_path.open("r", newline="", encoding="utf-8") as source:
             reader = csv.DictReader(source)
             rows = [transform_row(row) for row in reader]
+            total_rows = len(rows)
             rows = [row for row in rows if row is not None]
+            lines_discarded = total_rows - len(rows)
 
         if not rows:
             logger.warning("Arquivo %s não contém linhas válidas para inserir", file_path.name)
+            metrics.end_file_processing("b", 0, total_rows, "Sem linhas válidas")
             safe_move(file_path, DONE_DIR)
             return
 
@@ -101,12 +108,17 @@ def process_file(file_path):
         # 3. Inserir dados no banco (operação segura com logs)
         insert_rows(rows, file_path.name)
         
-        # 4. Mover para pronto
+        # 4. Registrar métricas
+        metrics.end_file_processing("b", len(rows), lines_discarded)
+        metrics.complete_file(file_path.name)
+        
+        # 5. Mover para pronto
         safe_move(file_path, DONE_DIR)
         logger.info("Arquivo %s processado com sucesso (%s linhas inseridas)", file_path.name, len(rows))
         
     except Exception as exc:
         logger.exception("Erro ao processar %s: %s", file_path.name, exc)
+        metrics.end_file_processing("b", 0, 0, str(exc))
         # Mover arquivo com erro para pronto para não ficar preso
         safe_move(file_path, DONE_DIR)
 
@@ -124,6 +136,11 @@ def main():
     """Função principal: inicia o processamento e, opcionalmente, modo contínuo."""
     ensure_directories()
     process_all_files()
+    
+    # Exibir métricas após processamento
+    metrics = get_tracker()
+    metrics.print_metrics()
+    
     if os.getenv("WORKER_B_LOOP", "false").lower() == "true":
         logger.info("Modo contínuo ativado. Verificando novos arquivos a cada %s segundos.", POLL_SECONDS)
         while True:

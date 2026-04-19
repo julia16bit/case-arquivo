@@ -148,6 +148,12 @@ venv.bak/
 .spyderproject
 .spyproject
 
+# Dados e métricas do pipeline (não versionados)
+entrada/
+processado_a/
+pronto/
+metrics.json
+
 # Rope project settings
 .ropeproject
 

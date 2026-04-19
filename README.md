@@ -101,8 +101,12 @@ python -m pip install psycopg2-binary
 ├── db.py                    # Conexão PostgreSQL e bulk insert com deduplicação
 ├── validation.py            # Validações de segurança (tamanho, linhas, fórmulas, sanitização)
 ├── colored_logging.py       # Sistema de logs colorido ANSI
-├── generate_sample_input.py # Gera exemplo CSV com 10.000 linhas para teste
-├── demo_security.py         # Demonstração de controles de segurança
+├── metrics.py               # Rastreamento de métricas e performance
+├── metrics_viewer.py        # Visualizador de métricas do pipeline
+├── testes/                  # Scripts para gerar dados de teste
+│   ├── generate_sample_input.py         # Gera CSV com 10.000 linhas
+│   ├── generate_test_discarded_lines.py # Gera CSV com linhas descartadas
+│   └── demo_security.py                 # Demonstração de controles de segurança
 ├── README.md                # Este arquivo
 ├── SECURITY.md              # Documentação completa de segurança
 └── LICENSE                  # Licença do projeto
@@ -125,7 +129,11 @@ pronto/         # Arquivos finalizados após Worker B
 | `db.py` | Gerencia conexão, cria tabela com restrição única e insere em lote |
 | `validation.py` | Validações de tamanho (50 MB), linhas (100k), schema, fórmulas Excel e sanitização |
 | `colored_logging.py` | Logs ANSI coloridos para melhor observabilidade |
-| `demo_security.py` | Exemplos e testes de segurança |
+| `metrics.py` | Rastreia tempo de processamento, linhas, erros por arquivo e agregações |
+| `metrics_viewer.py` | Exibe métricas em formato legível (sumário e detalhado) |
+| `testes/generate_sample_input.py` | Gera CSV com 10.000 linhas para teste básico |
+| `testes/generate_test_discarded_lines.py` | Gera CSV com linhas que serão descartadas |
+| `testes/demo_security.py` | Exemplos e testes de segurança |
 
 ### Executar os workers
 
@@ -143,42 +151,55 @@ $env:WORKER_B_LOOP = "true"
 
 Ambos os workers então irão verificar novos arquivos a cada 30 segundos.
 
-## Estrutura do e Observabilidade
+## 📊 Observabilidade e Métricas
 
-Veja [SECURITY.md](SECURITY.md) para documentação completa sobre:
+O pipeline rastreia automaticamente as seguintes métricas em `metrics.json`:
 
-- **Validação de CSV**: limite de tamanho (50 MB), contagem de linhas (100k), detecção de fórmulas Excel, sanitização de caracteres
-- **Arquivos Temporários (.tmp)**: garante escrita atômica e previne leitura parcial
-- **Prevenção de Reprocessamento**: movimentação clara de arquivos entre pastas
-- **Deduplicação no Banco**: constraint única `(fonte, payload_hash)` com `ON CONFLICT DO NOTHING`
-- **Logs Seguros**: nunca revela dados pessoais ou payload completo
-- **Logs Coloridos**: observabilidade visual com ANSI colors
+### Por Arquivo
+- ⏱️ Tempo de processamento (Worker A e Worker B)
+- ✅ Número de linhas processadas
+- ❌ Número de linhas descartadas
+- ⚠️ Erros e exceções capturadas
+
+### Resumo Geral
+- 📈 Total de arquivos processados
+- 📊 Linhas médias por arquivo
+- ⏱️ Tempo médio de processamento
+- 📉 Taxa de processamento (arquivos/minuto)
+- 🔴 Total de erros registrados
+
+### Visualizar Métricas
+```bash
+python metrics_viewer.py
+```
 
 ## Exemplos de Uso
 
 ### Gerar dados de teste
 ```bash
-python generate_sample_input.py
+python testes/generate_sample_input.py
 ```
+
+### Testar descarte de linhas
+```bash
+python testes/generate_test_discarded_lines.py
+python worker_a.py
+python worker_b.py
+python metrics_viewer.py
+```
+
+Você verá linhas sendo descartadas quando todas as colunas contêm fórmulas perigosas, caracteres inválidos ou estão vazias.
 
 ### Demonstrar controles de segurança
 ```bash
-python demo_security.py
+python testes/demo_security.py
 python worker_a.py
 python worker_b.py
 ```
 
-## Exemplo de Arquivo de Entrada
-
-O arquivo de exemplo `entrada/sample_input.csv` contém nomes, idades e salários. Ele demonstra o fluxo de limpeza e transformação do pipeline.
-
-## Verificação no Banco
-
-Use o `psql` ou Python para confirmar que os dados foram inseridos:
-
-```sql
-SELECT count(*) FROM dados_processados;
-SELECT fonte, payload FROM dados_processados LIMIT 10;
+### Visualizar métricas
+```bash
+python metrics_viewer.py
 ```
 
 ## 🔐 Segurança

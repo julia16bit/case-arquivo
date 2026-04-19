@@ -152,6 +152,106 @@ sql = f"INSERT INTO dados (fonte, payload) VALUES ({source_file}, {row})"
 
 ---
 
+## 8. Deduplicação no Banco (Novo)
+
+### O que foi implementado:
+
+**Arquivo: `db.py`**
+
+- ✅ **Hash automático**: `payload_hash` gerado com `md5(payload::text)` STORED
+- ✅ **Constraint única**: `UNIQUE (fonte, payload_hash)` garante unicidade
+- ✅ **ON CONFLICT**: Insert ignora duplicatas sem erro
+- ✅ **Migração segura**: Remove duplicatas existentes ao criar constraint
+
+### Schema da Tabela:
+
+```sql
+CREATE TABLE dados_processados (
+    id SERIAL PRIMARY KEY,
+    fonte TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    payload_hash TEXT GENERATED ALWAYS AS (md5(payload::text)) STORED,
+    carregado_em TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_fonte_payload_hash UNIQUE (fonte, payload_hash)
+)
+```
+
+### Insert com Deduplicação:
+
+```python
+# Comando seguro com deduplicação
+sql = (
+    "INSERT INTO dados_processados (fonte, payload) VALUES %s "
+    "ON CONFLICT ON CONSTRAINT unique_fonte_payload_hash DO NOTHING"
+)
+execute_values(cur, sql, values)
+```
+
+### Comportamento:
+
+**Cenário: Reexecução de `worker_b.py` com mesmo arquivo**
+
+```
+Round 1: sample_input_10000.csv
+  → Inseridas 10.000 linhas no banco ✅
+
+Round 2: sample_input_10000.csv (reprocessado)
+  → ON CONFLICT ignora as 10.000 duplicatas
+  → Inseridas 0 linhas no banco ✅
+  → Banco mantém 10.000 registros unicos
+```
+
+### Benefícios:
+
+- **Idempotência**: Rodar `worker_b.py` múltiplas vezes é seguro
+- **Sem duplicatas**: Mesmos dados nunca são inseridos duas vezes
+- **Performance**: Constraint at database level é eficiente
+- **Rastreabilidade**: Logs mostram quantas linhas foram realmente inseridas
+
+### Verificação no Banco:
+
+```sql
+-- Ver a constraint criada
+SELECT constraint_name FROM information_schema.table_constraints 
+WHERE table_name = 'dados_processados' AND constraint_type = 'UNIQUE';
+
+-- Ver registros únicos por arquivo
+SELECT fonte, COUNT(*) as total_linhas
+FROM dados_processados
+GROUP BY fonte
+ORDER BY total_linhas DESC;
+
+-- Ver se há coluna payload_hash
+SELECT column_name FROM information_schema.columns
+WHERE table_name = 'dados_processados' AND column_name = 'payload_hash';
+```
+
+### Exemplo de Resultado Real:
+
+```
+pipeline_db=# SELECT fonte, COUNT(*) as total_linhas
+pipeline_db-# FROM dados_processados
+pipeline_db-# GROUP BY fonte
+pipeline_db-# ORDER BY total_linhas DESC;
+         fonte          | total_linhas
+------------------------+--------------
+ demo_large.csv         |       100000
+ sample_input_10000.csv |         8954
+ demo_formula.csv       |            3
+ demo_validation.csv    |            2
+(4 rows)
+```
+
+**Observações:**
+- `demo_large.csv`: 100.000 linhas inseridas (nenhuma descartada)
+- `sample_input_10000.csv`: 8.954 linhas inseridas (46 linhas foram descartadas como vazias)
+- `demo_formula.csv`: 3 linhas com fórmulas sanitizadas
+- `demo_validation.csv`: 2 linhas válidas
+
+Total de linhas no banco: **110.005 registros únicos** 🎯
+
+---
+
 ## 🧪 Como Testar a Segurança
 
 ### 1. Teste de fórmula Excel
@@ -194,18 +294,35 @@ python worker_b.py
 ### 4. Teste de reprocessamento
 
 ```bash
-# Round 1
-echo 'nome,idade
-João,30' > entrada/dados.csv
-python worker_a.py
+# Executar demo de segurança
+python testes/demo_security.py
 
-# Round 2
-echo 'nome,idade
-Maria,25' > entrada/dados.csv
+# Depois processar
 python worker_a.py
+python worker_b.py
 
-# Resultado: arquivo antigo em pronto/dados_TIMESTAMP.csv
-#            novo arquivo em processado_a/dados.csv
+# Resultado: arquivos já processados em pronto/ não são reprocessados
+```
+
+### 5. Teste de deduplicação no banco
+
+```bash
+# Executar demo de teste de descarte
+python testes/generate_test_discarded_lines.py
+python worker_a.py
+python worker_b.py
+
+# Reexecute para verificar deduplicação
+python worker_a.py
+python worker_b.py
+
+# Verificar no banco
+psql -d pipeline_db -c "SELECT COUNT(*) as total FROM dados_processados WHERE fonte='test_discarded_lines.csv';"
+# Resultado: Mesmo número de linhas (sem duplicatas!)
+
+# Verificar métricas
+python metrics_viewer.py
+# Você verá "Inseridas 0 linhas" na segunda execução
 ```
 
 ---
@@ -222,6 +339,8 @@ python worker_a.py
 | Falha silenciosa               | Try/except + move para pronto mesmo em erro| ✅     |
 | Arquivo parcialmente escrito   | Operação atômica rename()                  | ✅     |
 | Caracteres malformados         | Sanitização de strings                     | ✅     |
+| Duplicatas no banco            | Constraint única + ON CONFLICT DO NOTHING  | ✅     |
+| Inserção duplicada ao reexecutar | Hash MD5 payload com STORED + UNIQUE      | ✅     |
 
 ---
 
@@ -235,7 +354,3 @@ Para usar em produção real, adicione:
 4. **Backup automático** de arquivos processados
 5. **Monitoramento** com alertas de erros
 6. **Testes automatizados** de segurança
-
----
-
-**Última atualização**: Abril 2026

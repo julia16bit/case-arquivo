@@ -6,6 +6,7 @@ from pathlib import Path
 
 from validation import validate_csv_file, sanitize_value
 from colored_logging import setup_colored_logging
+from metrics import get_tracker
 
 INPUT_DIR = Path("entrada")
 STEP_A_DIR = Path("processado_a")
@@ -55,22 +56,29 @@ def process_file(file_path):
     """Processa arquivo CSV: valida, limpa e salva em arquivo temporário, depois move."""
     logger.info("Iniciando processamento de %s", file_path.name)
     
-    # 1. Validação de segurança
-    if not validate_csv_file(file_path):
-        logger.error("Arquivo %s falhou na validação, será descartado", file_path.name)
-        safe_move(file_path, DONE_DIR)
-        return
+    metrics = get_tracker()
+    metrics.start_file_processing(file_path.name, "a")
     
     try:
+        # 1. Validação de segurança
+        if not validate_csv_file(file_path):
+            logger.error("Arquivo %s falhou na validação, será descartado", file_path.name)
+            metrics.end_file_processing("a", 0, 0, "Falhou na validação")
+            safe_move(file_path, DONE_DIR)
+            return
+        
         # 2. Leitura e limpeza
         with file_path.open("r", newline="", encoding="utf-8") as source:
             reader = csv.DictReader(source)
             fieldnames = reader.fieldnames or []
             cleaned_rows = [clean_row(row) for row in reader]
+            total_rows = len(cleaned_rows)
             cleaned_rows = [row for row in cleaned_rows if row is not None]
+            lines_discarded = total_rows - len(cleaned_rows)
 
         if not fieldnames:
             logger.warning("Arquivo %s não possui cabeçalho válido", file_path.name)
+            metrics.end_file_processing("a", 0, total_rows, "Sem cabeçalho válido")
             safe_move(file_path, DONE_DIR)
             return
 
@@ -87,11 +95,15 @@ def process_file(file_path):
         temp_path.rename(output_path)
         logger.info("Arquivo limpo e salvo: %s (%s linhas)", output_path.name, len(cleaned_rows))
         
-        # 5. Mover original para pronto
+        # 5. Registrar métricas
+        metrics.end_file_processing("a", len(cleaned_rows), lines_discarded)
+        
+        # 6. Mover original para pronto
         safe_move(file_path, DONE_DIR)
         
     except Exception as exc:
         logger.exception("Erro ao processar %s: %s", file_path.name, exc)
+        metrics.end_file_processing("a", 0, 0, str(exc))
         safe_move(file_path, DONE_DIR)
 
 
@@ -108,6 +120,11 @@ def main():
     """Função principal: inicia o processamento e, opcionalmente, modo contínuo."""
     ensure_directories()
     process_all_files()
+    
+    # Exibir métricas após processamento
+    metrics = get_tracker()
+    metrics.print_metrics()
+    
     if os.getenv("WORKER_A_LOOP", "false").lower() == "true":
         logger.info("Modo contínuo ativado. Verificando novos arquivos a cada %s segundos.", POLL_SECONDS)
         while True:

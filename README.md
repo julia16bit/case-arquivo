@@ -1,5 +1,5 @@
 <h2 align="center">🟦 Pipeline Manager</h2>
-<p align="center">Script simples de processamento em duas etapas para arquivos CSV. O projeto valida e limpa dados na etapa A, transforma e insere no PostgreSQL na etapa B, gerando um fluxo de dados em lote seguro e repetível.</p>
+<p align="center">Pipeline de dados em duas etapas com foco em confiabilidade, segurança e observabilidade. O projeto valida e limpa dados na etapa A, transforma e insere no PostgreSQL na etapa B, gerando um fluxo de dados em lote seguro e repetível.</p>
   
 <p align="center"> 
   <img alt="Python" src="https://img.shields.io/badge/Python-2E3849?style=for-the-badge&logo=python&logoColor=white&color=2E3849&labelColor=2E3849"/>
@@ -17,6 +17,7 @@ Projeto de pipeline de dados em Python que processa arquivos CSV em lote usando 
 - **Worker B**: transforma os dados de `processado_a/`, normaliza tipos e insere registros em PostgreSQL.
 
 O fluxo evita reprocessar arquivos e, agora, também previne inserções duplicadas no banco quando o mesmo conteúdo é reenviado.
+O pipeline foi projetado para evolução futura com múltiplos workers e integração com filas para maior escalabilidade.
 
 ## Fluxo de Dados
 
@@ -167,6 +168,7 @@ O pipeline rastreia automaticamente as seguintes métricas em `metrics.json`:
 - ⏱️ Tempo médio de processamento
 - 📉 Taxa de processamento (arquivos/minuto)
 - 🔴 Total de erros registrados
+- 💾 As métricas são persistidas localmente em `metrics.json` para análise histórica simples.
 
 ### Visualizar Métricas
 ```bash
